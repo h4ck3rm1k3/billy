@@ -55,8 +55,8 @@ def scan_bills(abbr):
             session_d['lower_count'] += 1
         elif bill['chamber'] == 'upper':
             session_d['upper_count'] += 1
-        for type in bill['type']:
-            session_d['bill_types'][type] += 1
+        for _type in bill['type']:
+            session_d['bill_types'][_type] += 1
 
         update_common(bill, session_d)
 
@@ -67,8 +67,8 @@ def scan_bills(abbr):
             if date < last_date:
                 session_d['actions_unsorted'].add(bill['_id'])
             session_d['action_count'] += 1
-            for type in action['type']:
-                session_d['actions_per_type'][type] += 1
+            for _type in action['type']:
+                session_d['actions_per_type'][_type] += 1
             if 'other' in action['type']:
                 other_actions[action['action']] += 1
             session_d['actions_per_actor'][action['actor']] += 1
@@ -167,13 +167,14 @@ def scan_bills(abbr):
             logger.warning('unnecessary {0} exceptions for {1} bills: \n  {2}'
                            .format(qe_type, len(qes), '\n  '.join(qes)))
 
-    return {'duplicate_versions': dup_version_urls,
-            'duplicate_sources': dup_source_urls,
-            'other_actions': other_actions.items(),
-            'uncategorized_subjects': uncategorized_subjects.items(),
-            'sessions': sessions,
-            'progress_meter_gaps': []
-           }
+    return {
+        'duplicate_versions': dup_version_urls,
+        'duplicate_sources': dup_source_urls,
+        'other_actions': other_actions.items(),
+        'uncategorized_subjects': uncategorized_subjects.items(),
+        'sessions': sessions,
+        'progress_meter_gaps': []
+    }
 
 
 def calculate_percentages(report):

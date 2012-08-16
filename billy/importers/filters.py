@@ -47,19 +47,11 @@ def run_filter(fltr, object_path, obj):
 
 
 def _phone_formatter(obj, extention):
-    if obj == {}:
-        return ""
-
-    number = ""
-    # +C (AREA) PREFIX-LINENUM
-    if "country" in obj:
-        number += "+%s " % (obj['country'])
-
-    if "area" in obj:
-        number += "(%s) " % (obj['area'])
-
-    number += "%s-%s" % (obj['prefix'], obj['line_number'])
-
+    objs = []
+    for thing in ["country", "area", "prefix", "line_number"]:
+        if thing in obj:
+            objs.append(obj[thing])
+    number = "-".join(objs)
     if extention is not None:
         number += " x%s" % (extention)
     return number
@@ -84,7 +76,7 @@ def phone_filter(original_number, formatter=_phone_formatter):
     breakers = "+-().,"
     for b in breakers:
         number = number.replace(b, " ")
-    number = re.sub("\s+", " ", number).strip()
+    number = re.sub(r"\s+", " ", number).strip()
     blobs = number.split()
     blobs.reverse()
     order = [
@@ -117,9 +109,6 @@ def phone_filter(original_number, formatter=_phone_formatter):
                 return original_number
 
     number = formatter(obj, extention)
-    if not number:
-        return original_number
-
     return number
 
 
@@ -133,7 +122,7 @@ def email_filter(email):
 
     if ">" in email and "<" in email:
         # we likely have a nested email.
-        emails = re.findall("\<(.*)\>", email)
+        emails = re.findall(r"\<(.*)\>", email)
         if len(emails) == 1:
             email = emails[0]
     return email
@@ -151,5 +140,5 @@ def single_space_filter(entry):
     if not isinstance(entry, basestring):
         return entry
 
-    entry = re.sub("\s+", " ", entry)
+    entry = re.sub(r"\s+", " ", entry)
     return strip_filter(entry)

@@ -1,40 +1,97 @@
-import re
-import itertools
 import subprocess
+#import sys
+#from lxml import etree
+#import traceback
+import scrapelib
+import lxml.html
+import re
 import collections
+import itertools
+
+
+class NoData(Exception):
+
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
+
+class NoDoc(NoData):
+
+    def __init__(self, value):
+        self.value = value
+
+
+class NoXpath(NoData):
+
+    def __init__(self, value):
+        self.value = value
 
 
 def url_xpath(url, path):
-    import scrapelib
-    import lxml.html
-    doc = lxml.html.fromstring(scrapelib.urlopen(url))
-    return doc.xpath(path)
+
+    data = scrapelib.urlopen(url)
+
+    if (data is None):
+        print "Could not get data from url:%s" % (url)
+        raise NoData(url)
+
+    doc = lxml.html.fromstring(data)
+
+    if (doc is None):
+        print "Could not decode XML Doc:%s" % (data)
+        raise NoDoc(data)
+
+#    print etree.tostring(doc)
+#    print doc
+#    print "Check  path:%s Doc:%s" % (path,doc)
+
+    result = doc.xpath(path)
+
+#    print result
+#    print len(result)
+
+    if (result is None):
+#        print doc
+#        print doc.tag
+#        print etree.tostring(doc)
+#        print "Xpath failed path:%s Doc:%s" % (path,doc)
+        print "Xpath failed"
+        raise NoXpath(data)
+
+#    print "url_xpath %s" % result
+#    exc_type, exc_value, exc_traceback = sys.exc_info()
+#    traceback.print_exc()
+#    traceback.print_tb(exc_traceback, file=sys.stdout)
+    return result
 
 
-def convert_pdf(filename, type='xml'):
+def convert_pdf(filename, _type='xml'):
     commands = {'text': ['pdftotext', '-layout', filename, '-'],
                 'text-nolayout': ['pdftotext', filename, '-'],
-                'xml': ['pdftohtml', '-xml', '-stdout', filename],
+                'xml':  ['pdftohtml', '-xml', '-stdout', filename],
                 'html': ['pdftohtml', '-stdout', filename]}
     try:
-        pipe = subprocess.Popen(commands[type], stdout=subprocess.PIPE,
+        pipe = subprocess.Popen(commands[_type], stdout=subprocess.PIPE,
                                 close_fds=True).stdout
     except OSError as e:
         raise EnvironmentError("error running %s, missing executable? [%s]" %
-                               ' '.join(commands[type]), e)
+                               ' '.join(commands[_type]), e)
     data = pipe.read()
     pipe.close()
     return data
 
 
-def pdf_to_lxml(filename, type='html'):
+def pdf_to_lxml(filename, _type='html'):
     import lxml.html
-    text = convert_pdf(filename, type)
+    text = convert_pdf(filename, _type)
     return lxml.html.fromstring(text)
 
 
 def clean_spaces(s):
-    return re.sub('\s+', ' ', s, flags=re.U).strip()
+    return re.sub(r'\s+', ' ', s, flags=re.U).strip()
 
 
 class PlaintextColumns(object):
@@ -53,7 +110,7 @@ class PlaintextColumns(object):
     """
 
     Usage:
-
+    >>> cols = """ Porter """
     >>> table = PlaintextColumns(cols)
 
     >>> table.rows().next()
@@ -86,7 +143,7 @@ class PlaintextColumns(object):
         '''
         ends = collections.Counter()
         for line in self.text.splitlines():
-            for matchobj in re.finditer('\s{2,}', line.lstrip()):
+            for matchobj in re.finditer(r'\s{2,}', line.lstrip()):
                 ends[matchobj.end()] += 1
         return ends
 
@@ -143,7 +200,7 @@ class PlaintextColumns(object):
         for boundary in self.boundaries:
             cell = line.lstrip()[boundary].strip()
             if cell:
-                for cell in re.split('\s{3,}', cell):
+                for cell in re.split(r'\s{3,}', cell):
                     yield cell
             else:
                 yield None

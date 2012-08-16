@@ -264,7 +264,7 @@ class BillVote(Document):
         '''
         #id_getter = operator.itemgetter('leg_id')
         #ids = map(id_getter, self['%s_votes' % yes_no_other])
-        #return map(self._legislator_objects.get, ids)
+        # return map(self._legislator_objects.get, ids)
         result = []
         for voter in self[yes_no_other + '_votes']:
             if voter['leg_id']:
@@ -340,12 +340,18 @@ class BillSearchResults(object):
                 if not resp['_shards']['successful']:
                     # if we get a parse exception, simplify from query_string
                     # to a simple text match
-                    if 'ParseException' in resp['_shards']['failures'][0]['reason']:
+                    if 'ParseException' in resp[
+                            '_shards'
+                    ][
+                        'failures'][0][
+                            'reason']:
                         fquery = self.es_search['query']['filtered']['query']
-                        fquery['match'] = {'_all': fquery['query_string']['query']}
+                        fquery['match'] = {'_all':
+                                           fquery['query_string']['query']}
                         fquery.pop('query_string')
-                        resp = elasticsearch.count(self.es_search['query'], index='billy',
-                                                   doc_type='bills')
+                        resp = elasticsearch.count(
+                            self.es_search['query'], index='billy',
+                            doc_type='bills')
                     else:
                         raise Exception('ElasticSearch error: %s' %
                                         resp['_shards']['failures'])
@@ -536,9 +542,9 @@ class Bill(Document):
 
             # if query is numeric convert to an id filter
             #   (TODO: maybe this should be an $or)
-            if re.findall('\d+', query):
+            if re.findall(r'\d+', query):
                 # if query is entirely numeric make it a regex and hit mongo
-                if not re.findall('\D', query):
+                if not re.findall(r'\D', query):
                     mongo_filter['bill_id'] = {'$regex':
                                                fix_bill_id(query).upper()}
                 else:
@@ -603,7 +609,8 @@ class Bill(Document):
                                        {'gte': last_action_since}}})
         elif last_action_since:
             try:
-                mongo_filter['action_dates.last'] = {'$gte': parse_param_dt(last_action_since)}
+                mongo_filter['action_dates.last'] = {
+                    '$gte': parse_param_dt(last_action_since)}
             except ValueError:
                 raise ValueError('invalid last_action_since parameter. '
                                  'please supply date in YYYY-MM-DD format')
