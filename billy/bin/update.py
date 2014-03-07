@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import logging
+import logging.config
+logging.config.fileConfig('logging.conf')
 _log = logging.getLogger('billy')
+
 import importlib
 import os
 import sys
 import pdb
 import json
 import glob
-import logging
 import inspect
 import argparse
 import traceback
@@ -574,11 +576,11 @@ def main():
         _log.critical('No XPath:', e)
         sys.exit(1)
 
-    except Exception as e:
-        _log.debug("Unknown error3")
-        _log.debug(e)
-        _log.critical('Unknown Error')
-        sys.exit(1)
+ #   except Exception as e:
+ #       _log.debug("Unknown error3")
+ #       _log.debug(e)
+ #       _log.critical('Unknown Error')
+ #       sys.exit(1)
 
 _log = logging.getLogger('billy')
 
