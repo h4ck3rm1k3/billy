@@ -8,6 +8,7 @@ import datetime
 #import pymongo.errors
 import name_tools
 import logging
+from billy.core import db, settings
 _log = logging.getLogger('billy')
 #from billy.conf import settings
 #import sys

@@ -183,7 +183,7 @@ class Bill(SourcedObject):
             })
 
         self['actions'].append(dict(actor=actor, action=action,
-                                    date=date, type=_type,
+                                    date=date, _type=_type,
                                     related_entities=related_entities,
                                     **kwargs))
 

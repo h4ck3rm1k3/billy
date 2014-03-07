@@ -12,9 +12,9 @@ import datetime
 _log = logging.getLogger("billy")
 #from billy.core import settings
 #from billy.utils import JSONEncoderPlus
-
+import os, errno
 #import scrapelib
-
+import posixpath as path
 
 class ScrapeError(Exception):
     """
@@ -278,7 +278,13 @@ class Scraper(scrapelib.Scraper):
             _log.debug(self.__dict__)
 
         filename = obj.get_filename()
-        with open(os.path.join(self.output_dir, self.scraper_type, filename),
+
+        outpath = os.path.join(self.output_dir, self.scraper_type)
+
+        if not path.exists(outpath):
+            os.makedirs(outpath)
+
+        with open(os.path.join(outpath, filename),
                   'w') as f:
             json.dump(obj, f, cls=JSONDateEncoder)
 
