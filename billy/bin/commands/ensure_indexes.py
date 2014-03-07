@@ -29,25 +29,19 @@ class MongoIndex(BaseCommand):
                  ('chamber', pymongo.ASCENDING)],
                 [(settings.LEVEL_FIELD, pymongo.ASCENDING),
                  ('committee', pymongo.ASCENDING),
-                 ('subcommittee', pymongo.ASCENDING)]
-            ],
+                 ('subcommittee', pymongo.ASCENDING)
+                 ]
+                ],
             'events': [
-                [
-                    (
-                        'when', pymongo.ASCENDING),
-                    (settings.LEVEL_FIELD, pymongo.ASCENDING),
-                    ('type', pymongo.ASCENDING)
-                ],
-                [
-                    ('when', pymongo.DESCENDING),
-                    (settings.LEVEL_FIELD, pymongo.ASCENDING),
-                    ('type', pymongo.ASCENDING)
-                ],
-                [
-                    (settings.LEVEL_FIELD, pymongo.ASCENDING),
-                    ('related_bills.bill_id', pymongo.ASCENDING),
-                    ('when', pymongo.DESCENDING)
-                ],
+                [('when', pymongo.ASCENDING),
+                 (settings.LEVEL_FIELD, pymongo.ASCENDING),
+                 ('type', pymongo.ASCENDING)],
+                [('when', pymongo.DESCENDING),
+                 (settings.LEVEL_FIELD, pymongo.ASCENDING),
+                 ('type', pymongo.ASCENDING)],
+                [(settings.LEVEL_FIELD, pymongo.ASCENDING),
+                 ('related_bills.bill_id', pymongo.ASCENDING),
+                 ('when', pymongo.DESCENDING)],
             ],
             'legislators': [
                 [('_all_ids', pymongo.ASCENDING)],

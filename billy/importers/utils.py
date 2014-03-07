@@ -3,29 +3,22 @@ import re
 import time
 import json
 import datetime
-import traceback
-from bson.son import SON
-import pymongo.errors
+#import traceback
+#from bson.son import SON
+#import pymongo.errors
 import name_tools
 import logging
+from billy.core import db, settings
 _log = logging.getLogger('billy')
-from billy import db
-from billy.conf import settings
-import sys
-
-if settings.ENABLE_OYSTER:
-    oyster_import_exception = None
-    try:
-        from oyster.core import kernel
-    except ImportError as e:
-        kernel = None               # noqa
-        oyster_import_exception = e
+#from billy.conf import settings
+#import sys
+#from billy.importers.names import attempt_committee_match
 
 
-def _get_property_dict(schema):
+def _get_property_dict(schema_obj):
     """ given a schema object produce a nested dictionary of fields """
     pdict = {}
-    for k, v in schema['properties'].iteritems():
+    for k, v in schema_obj['properties'].iteritems():
         pdict[k] = {}
         if 'items' in v and 'properties' in v['items']:
             pdict[k] = _get_property_dict(v['items'])
@@ -77,7 +70,7 @@ def insert_with_id(obj):
     # get abbr
     abbr = obj[settings.LEVEL_FIELD].upper()
 
-    id_reg = re.compile('^%s%s' % (abbr, id_type))
+    id_reg = re.compile(r'^%s%s' % (abbr, id_type))
 
     # Find the next available _id and insert
     id_prefix = '%s%s' % (abbr, id_type)
@@ -115,17 +108,18 @@ def _timestamp_to_dt(timestamp):
 def compare_committee(ctty1, ctty2):
     def _cleanup(obj):
         ctty_junk_words = [
-            "(\s+|^)committee(\s+|$)",
-            "(\s+|^)on(\s+|$)",
-            "(\s+|^)joint(\s+|$)",
-            "(\s+|^)house(\s+|$)",
-            "(\s+|^)senate(\s+|$)",
-            "[,\.\!\+\/]"
+            r"(\s+|^)standing(\s+|$)",
+            r"(\s+|^)committee(\s+|$)",
+            r"(\s+|^)on(\s+|$)",
+            r"(\s+|^)joint(\s+|$)",
+            r"(\s+|^)house(\s+|$)",
+            r"(\s+|^)senate(\s+|$)",
+            r"[,\.\!\+\/]"
         ]
         obj = obj.strip().lower()
         for junk in ctty_junk_words:
             obj = re.sub(junk, " ", obj).strip()
-        obj = re.sub("\s+", " ", obj)
+        obj = re.sub(r"\s+", " ", obj)
         obj = re.sub(r'\s+', ' ', re.sub(r'\W+', ' ', obj)).strip()
         return obj
     check_both = [
@@ -312,23 +306,24 @@ def merge_legislators(leg1, leg2):
     assert leg1['_id'] != leg2['_id']
     if leg1['_id'] > leg2['_id']:
         leg1, leg2 = leg2, leg1
-
-    leg1 = leg1.copy()
-    leg2 = leg2.copy()
+    import copy
+    # use deep copy for roles
+    leg1 = copy.deepcopy(leg1)
+    leg2 = copy.deepcopy(leg2)
 
     roles = 'roles'
     old_roles = 'old_roles'
 
-    no_compare = set(
-        (
-            '_id',
-            'leg_id',
-            '_all_ids',
-            '_locked_fields',
-            'created_at',
-            'updated_at',
-            roles,
-            old_roles))
+    no_compare = {
+        '_id',
+        'leg_id',
+        '_all_ids',
+        '_locked_fields',
+        'created_at',
+        'updated_at',
+        'roles',
+        'old_roles'
+    }
 
     leg1['_all_ids'] += leg2['_all_ids']
 

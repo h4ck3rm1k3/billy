@@ -1,24 +1,18 @@
 #!/usr/bin/env python
 from __future__ import print_function
-from billy.utils import configure_logging, term_for_session
-# we need this before the command line args are read in
-configure_logging("startup")
 import logging
+import logging.config
+logging.config.fileConfig('logging.conf')
 _log = logging.getLogger('billy')
 
-#import bson.binary
-#from bson.binary import ALL_UUID_SUBTYPES
-#from bson.binary import OLD_UUID_SUBTYPE
-
+import importlib
 import os
 import sys
 import json
 import glob
-import logging
 import inspect
 import argparse
 import traceback
-#import importlib
 import unicodecsv
 import os.path
 import datetime as dt
@@ -26,40 +20,13 @@ import pdb
 
 # code snippet, to be included in 'sitecustomize.py'
 from billy.scrape.validator import DatetimeValidator
-#from pymongo.errors import OperationFailure
+from billy.scrape import (
+    JSONDateEncoder)
 import pymongo
-
-
-def info(type, value, tb):
-    print ("except hook")
-    if hasattr(sys, 'ps1') or not sys.stderr.isatty():
-        # we are in interactive mode or we don't have a tty-like
-        # device, so we call the default hook
-        sys.__excepthook__(type, value, tb)
-    else:
-
-        # we are NOT in interactive mode, print the exception...
-        traceback.print_exception(type, value, tb)
-        # ...then start the debugger in post-mortem mode.
-        pdb.pm()
-
-sys.excepthook = info
-
 
 from billy.scrape.utils import NoData
 from billy.scrape.utils import NoDoc
 from billy.scrape.utils import NoXpath
-
-from billy import db
-from billy.conf import settings, base_arg_parser
-from billy.scrape import (
-    ScrapeError,
-    JSONDateEncoder,
-    get_scraper,
-    check_sessions)
-
-
-_log = logging.getLogger('billy')
 
 
 def _clear_scraped_data(output_dir, scraper_type=''):
@@ -80,10 +47,9 @@ def _get_configured_scraper(scraper_type, options, metadata):
         ScraperClass = get_scraper(options.module, scraper_type)
     except ScrapeError as e:
         # silence error only when alldata is present
-        if (
-                'alldata' in options.types and
-                str(e.orig_exception) == 'No module named %s' % scraper_type
-        ):
+        if 'alldata' in options.types and (
+                'no %s scraper found in' %
+                scraper_type) in str(e):
             return None
         else:
             raise e
@@ -130,9 +96,10 @@ def _run_scraper(scraper_type, options, metadata):
         for time in times:
             scraper.validate_term(time, scraper.latest_only)
 
-    #
+    # SingleBillFiltering
     if (not(options.billid is False)):
         scraper.set_filter_bill_id(options.billid)
+    # SingleBillFiltering
 
     # run scraper against year/session/term
     for time in times:
@@ -189,6 +156,8 @@ def _do_imports(abbrev, args):
             dist['_id'] = '%(abbr)s-%(chamber)s-%(name)s' % dist
             dist['boundary_id'] = dist['boundary_id'] % dist
             dist['num_seats'] = int(dist['num_seats'])
+
+            # extra debugging
             _log.debug(dist)
             db.districts.save(dist, safe=True)
     else:
@@ -221,7 +190,6 @@ def _do_imports(abbrev, args):
 
 
 def _do_reports(abbrev, args):
-    from billy import db
     from billy.reports.bills import bill_report
     from billy.reports.legislators import legislator_report
     from billy.reports.committees import committee_report
@@ -236,7 +204,9 @@ def _do_reports(abbrev, args):
         report['bills'] = bill_report(abbrev)
     if 'committees' in args.types:
         report['committees'] = committee_report(abbrev)
-
+    if 'speeches' in args.types:
+        report['speeches'] = speech_report(abbrev)
+    # debug
     _log.debug(report)
     db.reports.save(report, safe=True)
 
@@ -277,7 +247,9 @@ def main(old_scrape_compat=False):
                 'legislators',
                 'committees',
                 'votes',
-                'events'):
+                'events',
+                'speeches'):
+
             what.add_argument(
                 '--' + arg,
                 action='append_const',
@@ -296,8 +268,10 @@ def main(old_scrape_compat=False):
         scrape.add_argument('--fastmode', help="scrape in fast mode",
                             action="store_true", default=False)
 
+        # SingleBillFiltering
         scrape.add_argument('--billid', help="scrape only a single bill",
                             action="store", default=False)
+        # SingleBillFiltering
 
         # scrapelib overrides
         scrape.add_argument('-r', '--rpm', action='store', type=int,
@@ -329,8 +303,8 @@ def main(old_scrape_compat=False):
             # turn on PDB-on-error mode
             # stolen from http://stackoverflow.com/questions/1237379/
             # if this causes problems in interactive mode check that page
-            def _tb_info(type, value, tb):
-                traceback.print_exception(type, value, tb)
+            def _tb_info(_type, value, tb):
+                traceback.print_exception(_type, value, tb)
                 _debugger.pm()
             sys.excepthook = _tb_info
 
@@ -411,6 +385,12 @@ def main(old_scrape_compat=False):
         else:
             _log.debug("Search for billid: %s" % args.billid)
 
+        # singlebill filter
+        if args.billid is False:
+            _log.debug("No billid filter.")
+        else:
+            _log.debug("Search for billid: %s" % args.billid)
+
         if 'scrape' in args.actions:
             _clear_scraped_data(args.output_dir)
 
@@ -461,7 +441,8 @@ def main(old_scrape_compat=False):
                     'committees',
                     'votes',
                     'bills',
-                    'events')
+                    'events',
+                    'speeches')
             else:
                 _log.debug("going to process bills")
                 order = ('bills',)  # only process the bills
@@ -580,12 +561,43 @@ def main(old_scrape_compat=False):
         _log.critical('No XPath:', e)
         sys.exit(1)
 
-    except Exception as e:
-        _log.debug("Unknown error3")
-        _log.debug(e)
-        _log.critical('Unknown Error')
+    except ScrapeError as e:
+        _log.debug("in update.py Scrape error")
+        _log.debug("Scrape error :%s" % e)
+        _log.critical('Error: %s' % e)
         sys.exit(1)
 
+    except TypeError as e:
+        _log.debug("Type error")
+        _log.critical('TypeError:', e)
+        sys.exit(1)
+
+    except NoData as e:
+        _log.debug("No Data")
+        _log.debug(e)
+        _log.critical('No Data:')
+        sys.exit(1)
+
+    except NoDoc as e:
+        _log.debug("No Doc")
+        _log.critical('No Doc:', e)
+        sys.exit(1)
+
+    except NoXpath as e:
+        _log.debug("No XPath")
+        _log.critical('No XPath:', e)
+        sys.exit(1)
+
+ #   except Exception as e:
+ #       _log.debug("Unknown error3")
+ #       _log.debug(e)
+ #       _log.critical('Unknown Error')
+ #       sys.exit(1)
+
+_log = logging.getLogger('billy')
+
+def scrape_compat_main():
+    main(True)
 
 def scrape_compat_main():
     main(True)

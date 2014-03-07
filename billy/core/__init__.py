@@ -94,6 +94,7 @@ def _configure_db(host, port, db_name, user_db_name):
     transformer = Transformer()
 
     try:
+        logging.warning("Going to connect to mongo %s %s", host, port)
         conn = pymongo.Connection(host, port)
         db = conn[db_name]
         mdb = conn[db_name]
